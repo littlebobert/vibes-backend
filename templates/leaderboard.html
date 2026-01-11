@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ Vibes Leaderboard ✨</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #16161f;
+            --accent-hot: #ff3366;
+            --accent-warm: #ff9933;
+            --accent-cool: #33ccff;
+            --accent-pop: #cc33ff;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border-subtle: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated gradient background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(255, 51, 102, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(204, 51, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(51, 204, 255, 0.08) 0%, transparent 70%);
+            z-index: -1;
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Noise texture overlay */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-family: 'Dela Gothic One', cursive;
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            background: linear-gradient(135deg, var(--accent-hot), var(--accent-warm), var(--accent-pop));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 12px;
+            font-weight: 500;
+        }
+
+        .refresh-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-hint:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+
+        .refresh-hint svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-emoji {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .empty-state h2 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .leaderboard {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .submission-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 20px;
+            align-items: center;
+            transition: all 0.3s ease;
+            animation: slideIn 0.5s ease-out backwards;
+        }
+
+        .submission-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .submission-card:nth-child(1) { animation-delay: 0.1s; }
+        .submission-card:nth-child(2) { animation-delay: 0.15s; }
+        .submission-card:nth-child(3) { animation-delay: 0.2s; }
+        .submission-card:nth-child(4) { animation-delay: 0.25s; }
+        .submission-card:nth-child(5) { animation-delay: 0.3s; }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Top 3 special styling */
+        .submission-card.rank-1 {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.02));
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        .submission-card.rank-2 {
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.1), rgba(192, 192, 192, 0.02));
+            border-color: rgba(192, 192, 192, 0.2);
+        }
+
+        .submission-card.rank-3 {
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.1), rgba(205, 127, 50, 0.02));
+            border-color: rgba(205, 127, 50, 0.2);
+        }
+
+        .photo-container {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 16px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .photo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .submission-card:hover .photo-container img {
+            transform: scale(1.05);
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            z-index: 1;
+        }
+
+        .rank-1 .rank-badge {
+            background: linear-gradient(135deg, #ffd700, #ffb300);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .rank-2 .rank-badge {
+            background: linear-gradient(135deg, #e0e0e0, #a0a0a0);
+            color: #000;
+        }
+
+        .rank-3 .rank-badge {
+            background: linear-gradient(135deg, #cd7f32, #8b4513);
+            color: #fff;
+        }
+
+        .rank-badge:not(.rank-1 .rank-badge):not(.rank-2 .rank-badge):not(.rank-3 .rank-badge) {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+        }
+
+        .content {
+            min-width: 0;
+        }
+
+        .name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rank-1 .name::after { content: "👑"; }
+        .rank-2 .name::after { content: "🥈"; }
+        .rank-3 .name::after { content: "🥉"; }
+
+        .explanation {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        .score-container {
+            text-align: center;
+            padding: 0 10px;
+        }
+
+        .score {
+            font-family: 'Dela Gothic One', cursive;
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+
+        .score-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 4px;
+        }
+
+        /* Score colors based on value */
+        .score-10 { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
+        .score-9 { color: #33ff99; }
+        .score-8 { color: #66ffaa; }
+        .score-7 { color: #99dd66; }
+        .score-6 { color: #cccc44; }
+        .score-5 { color: #ffaa33; }
+        .score-4 { color: #ff8844; }
+        .score-3 { color: #ff6655; }
+        .score-2 { color: #ff4466; }
+        .score-1 { color: #ff3377; }
+
+        .delete-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.2s ease;
+        }
+
+        .submission-card:hover .delete-btn {
+            opacity: 0.7;
+        }
+
+        .delete-btn:hover {
+            opacity: 1 !important;
+            background: var(--accent-hot);
+        }
+
+        .delete-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Photo modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            cursor: zoom-out;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 600px) {
+            .submission-card {
+                grid-template-columns: 80px 1fr;
+                grid-template-rows: auto auto;
+                gap: 12px;
+            }
+
+            .photo-container {
+                width: 80px;
+                height: 80px;
+            }
+
+            .score-container {
+                grid-column: 1 / -1;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 0;
+            }
+
+            .score {
+                font-size: 1.8rem;
+            }
+
+            .score-label {
+                margin-top: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="noise"></div>
+    
+    <div class="container">
+        <header>
+            <h1>VIBES</h1>
+            <p class="subtitle">iOS Workshop Leaderboard</p>
+            <button class="refresh-hint" onclick="location.reload()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+            </button>
+        </header>
+
+        {% if submissions %}
+        <div class="leaderboard">
+            {% for sub in submissions %}
+            <div class="submission-card rank-{{ loop.index }}" data-id="{{ sub.id }}">
+                <div class="photo-container">
+                    <span class="rank-badge">#{{ loop.index }}</span>
+                    <img src="{{ sub.photo_url }}" alt="{{ sub.name }}'s photo" loading="lazy" onclick="showModal(this.src)">
+                    <button class="delete-btn" onclick="deleteSubmission({{ sub.id }})" title="Delete submission">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="content">
+                    <div class="name">{{ sub.name }}</div>
+                    <div class="explanation">"{{ sub.explanation }}"</div>
+                </div>
+                <div class="score-container">
+                    <div class="score score-{{ sub.vibe_score }}">{{ sub.vibe_score }}</div>
+                    <div class="score-label">/ 10</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-emoji">📸</div>
+            <h2>No vibes yet!</h2>
+            <p>Open the Vibes app on your phone and submit a photo to get started.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="modal" id="photoModal" onclick="hideModal()">
+        <img id="modalImg" src="" alt="Full size photo">
+    </div>
+
+    <script>
+        function showModal(src) {
+            const modal = document.getElementById('photoModal');
+            const img = document.getElementById('modalImg');
+            img.src = src;
+            modal.classList.add('active');
+            event.stopPropagation();
+        }
+
+        function hideModal() {
+            document.getElementById('photoModal').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') hideModal();
+        });
+
+        async function deleteSubmission(id) {
+            if (!confirm('Delete this submission?')) return;
+            
+            try {
+                const response = await fetch(`/api/submissions/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Remove card with animation
+                    const card = document.querySelector(`[data-id="${id}"]`);
+                    card.style.transform = 'translateX(-100%)';
+                    card.style.opacity = '0';
+                    setTimeout(() => location.reload(), 300);
+                } else {
+                    alert('Failed to delete submission');
+                }
+            } catch (err) {
+                alert('Error deleting submission');
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setTimeout(() => location.reload(), 30000);
+    </script>
+</body>
+</html>
+
+
+
