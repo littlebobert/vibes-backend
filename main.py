@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends, Req
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image
+from PIL import Image, ImageOps
 import aiosqlite
 
 from database import (
@@ -69,9 +69,16 @@ def get_anthropic_api_key() -> str:
 async def leaderboard(request: Request, db: aiosqlite.Connection = Depends(get_db)):
     """Render the leaderboard page."""
     submissions = await get_all_submissions(db)
-    # Add photo URLs
+    # Add photo URLs (use thumbnails for faster loading, full image for modal)
     for sub in submissions:
-        sub["photo_url"] = f"/uploads/{sub['photo_filename']}"
+        thumb_filename = f"thumb_{sub['photo_filename']}"
+        thumb_path = UPLOAD_DIR / thumb_filename
+        # Use thumbnail if it exists, otherwise fall back to original
+        if thumb_path.exists():
+            sub["photo_url"] = f"/uploads/{thumb_filename}"
+        else:
+            sub["photo_url"] = f"/uploads/{sub['photo_filename']}"
+        sub["full_photo_url"] = f"/uploads/{sub['photo_filename']}"
     return templates.TemplateResponse(
         "leaderboard.html",
         {"request": request, "submissions": submissions}
@@ -146,6 +153,12 @@ async def upload_photo(
     with open(file_path, "wb") as f:
         f.write(content)
     
+    # Normalize image orientation (fix iOS EXIF rotation issue)
+    try:
+        normalize_image_orientation(file_path)
+    except Exception:
+        pass  # Orientation fix is optional
+    
     # Create thumbnail for faster loading
     try:
         create_thumbnail(file_path)
@@ -215,6 +228,9 @@ def create_thumbnail(image_path: Path, size: tuple[int, int] = (400, 400)):
     thumb_path = image_path.parent / f"thumb_{image_path.name}"
     
     with Image.open(image_path) as img:
+        # Apply EXIF orientation - iOS cameras use EXIF tags instead of rotating pixels
+        img = ImageOps.exif_transpose(img)
+        
         # Convert RGBA to RGB if necessary (for JPEG compatibility)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
@@ -226,6 +242,20 @@ def create_thumbnail(image_path: Path, size: tuple[int, int] = (400, 400)):
         img.save(thumb_path, "JPEG", quality=85)
     
     return thumb_path
+
+
+def normalize_image_orientation(image_path: Path):
+    """Apply EXIF orientation to the image pixels and save it back."""
+    with Image.open(image_path) as img:
+        # Apply EXIF orientation - this rotates the actual pixels
+        transposed = ImageOps.exif_transpose(img)
+        
+        # Only save if the image was actually transposed
+        if transposed is not img:
+            # Preserve the original format
+            if img.mode in ("RGBA", "P") and image_path.suffix.lower() in (".jpg", ".jpeg"):
+                transposed = transposed.convert("RGB")
+            transposed.save(image_path, quality=95)
 
 
 if __name__ == "__main__":
