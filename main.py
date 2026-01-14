@@ -1,5 +1,6 @@
 import os
 import uuid
+import hashlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,7 +21,7 @@ from database import (
     get_submission_by_id,
     delete_submission,
 )
-from models import SubmissionResponse, SubmissionListItem, DeleteResponse
+from models import SubmissionResponse, SubmissionListItem, DeleteResponse, VibeResult
 from vibe_analyzer import analyze_vibe
 
 # Load environment variables
@@ -31,6 +32,46 @@ UPLOAD_DIR = Path(__file__).parent / "uploads"
 MAX_SUBMISSIONS_PER_USER = 3
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+def _is_probable_rate_limit_error(err: Exception) -> bool:
+    """
+    Best-effort detection for Anthropic 429s without tightly coupling to SDK internals.
+    """
+    status_code = getattr(err, "status_code", None) or getattr(getattr(err, "response", None), "status_code", None)
+    if status_code == 429:
+        return True
+    message = str(err).lower()
+    return "429" in message or "rate limit" in message or "too many requests" in message
+
+
+def _mock_vibe_result(name: str, seed: str, *, reason: str) -> VibeResult:
+    """
+    Generate a deterministic-ish "mock vibe" so the workshop can continue even if
+    the AI provider is down or rate-limiting.
+    """
+    digest = hashlib.sha256(f"{name}|{seed}".encode("utf-8")).digest()
+    score = (digest[0] % 10) + 1
+
+    quips = [
+        "Definitely the kind of developer who says “it works on my machine” and means it spiritually.",
+        "Strong “ship it” energy. Probably commits directly to main but somehow it’s fine.",
+        "Looks like they write clean code… until 2am, when the vibes take over.",
+        "This photo has “debugger open, confidence closed” vibes—in the best way.",
+        "Peak workshop aura. Would absolutely name a variable `finalFinal2` without shame.",
+        "The vibe says “swift” but the posture says “async/await taught me humility.”",
+        "Unreasonably solid vibes. The kind that makes build errors feel personal.",
+        "This is the face of someone who’s one good refactor away from enlightenment.",
+        "Quiet confidence. Probably knows what a provisioning profile is (and hates it).",
+        "Chaotic good. Ships features first, then remembers tests exist.",
+    ]
+
+    explanation = quips[digest[1] % len(quips)]
+    if reason:
+        # Keep it light + transparent without being scary.
+        explanation = f"{explanation} (vibe-o-meter in backup mode: {reason})"
+
+    return VibeResult(score=score, explanation=explanation)
 
 
 @asynccontextmanager
@@ -167,12 +208,13 @@ async def upload_photo(
     
     # Analyze the vibe
     try:
-        api_key = get_anthropic_api_key()
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise RuntimeError("missing api key")
         vibe_result = await analyze_vibe(file_path, api_key)
     except Exception as e:
-        # Clean up file on error
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+        reason = "rate limited" if _is_probable_rate_limit_error(e) else "ai error"
+        vibe_result = _mock_vibe_result(name, unique_filename, reason=reason)
     
     # Save to database
     submission_id = await create_submission(
